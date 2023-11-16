@@ -1,8 +1,13 @@
 [package]
-name = "advent2019_rust"
+name = "advent2019"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.75"
+itertools = "0.11.0"
+num-traits = "0.2.17"
+rand = "0.8.5"
+thiserror = "1.0.50"
