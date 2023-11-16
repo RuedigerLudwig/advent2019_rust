@@ -5,6 +5,7 @@ use std::{env, time};
 
 mod common;
 mod days;
+mod int_code;
 mod macros;
 
 fn output(day: DayType, part: PartType, result: ResultType, time: time::Duration) {
