@@ -6,17 +6,17 @@ pub struct IntCodeComputer {
 }
 
 impl IntCodeComputer {
-    fn new(memory: Vec<i64>) -> Self {
+    fn new(memory: &[i64]) -> Self {
         Self {
             state: State::new(memory),
         }
     }
 
-    pub fn get_value_at(&self, addr: Pointer) -> Result<i64, ComputerError> {
+    pub fn get_value_at(&self, addr: Pointer) -> i64 {
         self.state.get_value_at(addr)
     }
 
-    pub fn set_address(&mut self, addr: Pointer, value: i64) -> Result<(), ComputerError> {
+    pub fn set_address(&mut self, addr: Pointer, value: i64) {
         self.state.set_value(addr, value)
     }
 
@@ -25,26 +25,31 @@ impl IntCodeComputer {
     }
 
     pub fn run(&mut self) -> Result<(), ComputerError> {
-        if let Some(result) = self.next() {
+        if let Some(result) = self.run_blocking().next() {
             let _ = result?;
         }
         Ok(())
     }
-}
 
-impl Iterator for IntCodeComputer {
-    type Item = Result<i64, ComputerError>;
+    pub fn run_blocking(&mut self) -> impl Iterator<Item = Result<i64, ComputerError>> + '_ {
+        struct BlockingIter<'a>(&'a mut IntCodeComputer);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            match self.state.next_instruction() {
-                // Intentionally blocking
-                Ok(StepResult::Waiting) | Ok(StepResult::Continue) => {}
-                Ok(StepResult::Output(value)) => return Some(Ok(value)),
-                Ok(StepResult::Halted) => return None,
-                Err(err) => return Some(Err(err)),
+        impl<'a> Iterator for BlockingIter<'a> {
+            type Item = Result<i64, ComputerError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                loop {
+                    match self.0.state.next_instruction() {
+                        Ok(StepResult::Waiting) | Ok(StepResult::Continue) => {}
+                        Ok(StepResult::Output(value)) => return Some(Ok(value)),
+                        Ok(StepResult::Halted) => return None,
+                        Err(err) => return Some(Err(err)),
+                    }
+                }
             }
         }
+
+        BlockingIter(self)
     }
 }
 
@@ -53,16 +58,20 @@ pub struct ComputerFactory {
 }
 
 impl ComputerFactory {
+    pub fn new(data: Vec<i64>) -> Self {
+        Self { data }
+    }
+
     pub fn init(input: &str) -> Result<Self, ComputerError> {
         let data = input
             .split(',')
             .map(|byte| byte.trim().parse())
             .try_collect()?;
-        Ok(Self { data })
+        Ok(Self::new(data))
     }
 
     pub fn build(&self) -> IntCodeComputer {
-        IntCodeComputer::new(self.data.clone())
+        IntCodeComputer::new(&self.data)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = IntCodeComputer> + '_ {

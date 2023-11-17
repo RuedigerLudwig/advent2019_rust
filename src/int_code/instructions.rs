@@ -2,10 +2,11 @@ use super::{
     computer_error::ComputerError,
     param_mode::ParamModeDispenser,
     state::{State, StepResult},
+    Pointer,
 };
 
 pub fn run_instruction(state: &mut State) -> Result<StepResult, ComputerError> {
-    let (code, pd) = analyze_instruction(state.get_next()?)?;
+    let (code, pd) = analyze_instruction(state.get_next())?;
 
     match code {
         1 => Add::calc(state, pd),
@@ -16,6 +17,7 @@ pub fn run_instruction(state: &mut State) -> Result<StepResult, ComputerError> {
         6 => JumpIfFalse::calc(state, pd),
         7 => LessThan::calc(state, pd),
         8 => Equals::calc(state, pd),
+        9 => RelativeBase::calc(state, pd),
         99 => Stop::calc(state, pd),
         _ => Err(ComputerError::IllegalOperation(code)),
     }
@@ -46,7 +48,7 @@ impl Instruction for Add {
         let op2 = state.get_value(parameters.next())?;
         let target = state.get_address(parameters.next())?;
 
-        state.set_value(target, op1 + op2)?;
+        state.set_value(target, op1 + op2);
         Ok(StepResult::Continue)
     }
 }
@@ -61,7 +63,7 @@ impl Instruction for Mul {
         let op2 = state.get_value(parameters.next())?;
         let target = state.get_address(parameters.next())?;
 
-        state.set_value(target, op1 * op2)?;
+        state.set_value(target, op1 * op2);
         Ok(StepResult::Continue)
     }
 }
@@ -84,7 +86,7 @@ impl Instruction for Input {
     ) -> Result<StepResult, ComputerError> {
         if let Some(value) = state.get_input() {
             let target = state.get_address(parameters.next())?;
-            state.set_value(target, value)?;
+            state.set_value(target, value);
             Ok(StepResult::Continue)
         } else {
             state.repeat();
@@ -113,7 +115,7 @@ impl Instruction for JumpIfTrue {
         let test = state.get_value(parameters.next())?;
         let target = state.get_value(parameters.next())?;
         if test != 0 {
-            state.set_pointer(target.try_into()?);
+            state.set_pointer(Pointer::from_i64(target)?);
         }
         Ok(StepResult::Continue)
     }
@@ -128,7 +130,7 @@ impl Instruction for JumpIfFalse {
         let test = state.get_value(parameters.next())?;
         let target = state.get_value(parameters.next())?;
         if test == 0 {
-            state.set_pointer(target.try_into()?);
+            state.set_pointer(Pointer::from_i64(target)?);
         }
         Ok(StepResult::Continue)
     }
@@ -145,7 +147,7 @@ impl Instruction for LessThan {
         let target = state.get_address(parameters.next())?;
 
         let result = if op1 < op2 { 1 } else { 0 };
-        state.set_value(target, result)?;
+        state.set_value(target, result);
         Ok(StepResult::Continue)
     }
 }
@@ -161,7 +163,21 @@ impl Instruction for Equals {
         let target = state.get_address(parameters.next())?;
 
         let result = if op1 == op2 { 1 } else { 0 };
-        state.set_value(target, result)?;
+        state.set_value(target, result);
+        Ok(StepResult::Continue)
+    }
+}
+
+struct RelativeBase;
+impl Instruction for RelativeBase {
+    fn calc(
+        state: &mut State,
+        parameters: ParamModeDispenser,
+    ) -> Result<StepResult, ComputerError> {
+        let op1 = state.get_value(parameters.next())?;
+
+        state.adjust_relative_base(op1);
+
         Ok(StepResult::Continue)
     }
 }

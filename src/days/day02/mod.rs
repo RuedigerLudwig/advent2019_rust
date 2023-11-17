@@ -14,10 +14,10 @@ impl DayTrait for Day {
         let factory = ComputerFactory::init(input)?;
         let mut computer = factory.build();
 
-        computer.set_address(Pointer::new(1), 12)?;
-        computer.set_address(Pointer::new(2), 2)?;
+        computer.set_address(Pointer::new(1), 12);
+        computer.set_address(Pointer::new(2), 2);
         computer.run()?;
-        Ok(computer.get_value_at(Pointer::new(0))?.into())
+        Ok(computer.get_value_at(Pointer::new(0)).into())
     }
 
     fn part2(&self, input: &str) -> RResult {
@@ -26,10 +26,10 @@ impl DayTrait for Day {
         for noun in 0..100 {
             for verb in 0..100 {
                 let mut computer = factory.build();
-                computer.set_address(Pointer::new(1), noun)?;
-                computer.set_address(Pointer::new(2), verb)?;
+                computer.set_address(Pointer::new(1), noun);
+                computer.set_address(Pointer::new(2), verb);
                 computer.run()?;
-                if computer.get_value_at(Pointer::new(0))? == target {
+                if computer.get_value_at(Pointer::new(0)) == target {
                     return Ok((noun * 100 + verb).into());
                 }
             }
@@ -54,7 +54,7 @@ mod test {
 
         computer.run()?;
 
-        assert_eq!(computer.get_value_at(Pointer::new(0))?, 3500);
+        assert_eq!(computer.get_value_at(Pointer::new(0)), 3500);
 
         Ok(())
     }

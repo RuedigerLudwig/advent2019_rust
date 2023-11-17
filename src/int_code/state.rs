@@ -1,8 +1,7 @@
-use std::collections::VecDeque;
-
 use super::computer_error::ComputerError;
 use super::param_mode::ParamMode;
 use super::{instructions, Pointer};
+use std::collections::{HashMap, VecDeque};
 
 pub enum StepResult {
     Continue,
@@ -19,17 +18,26 @@ pub enum RunningState {
 }
 
 pub struct State {
-    memory: Vec<i64>,
+    memory: HashMap<Pointer, i64>,
     pointer: Pointer,
+    relative_base: i64,
     running: RunningState,
     input_buffer: VecDeque<i64>,
 }
 
 impl State {
-    pub fn new(memory: Vec<i64>) -> State {
+    pub fn new(memory: &[i64]) -> State {
+        let memory = memory
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(p, data)| (Pointer::new(p), data))
+            .collect();
+
         Self {
             memory,
             pointer: Pointer::default(),
+            relative_base: 0,
             running: RunningState::Running,
             input_buffer: VecDeque::new(),
         }
@@ -65,56 +73,41 @@ impl State {
         }
     }
 
-    pub fn get_next(&mut self) -> Result<i64, ComputerError> {
-        let pointer = self.pointer.get();
-        if pointer <= self.memory.len() {
-            self.pointer.inc();
-            Ok(self.memory[pointer])
-        } else {
-            Err(ComputerError::NoMoreData)
-        }
+    #[inline]
+    pub fn get_value_at(&self, pointer: Pointer) -> i64 {
+        self.memory.get(&pointer).copied().unwrap_or_default()
+    }
+
+    pub fn get_next(&mut self) -> i64 {
+        let value = self.get_value_at(self.pointer);
+        self.pointer.inc();
+        value
     }
 
     pub fn get_value(&mut self, pm: ParamMode) -> Result<i64, ComputerError> {
-        let pointer = self.pointer.get();
-        if pointer <= self.memory.len() {
-            self.pointer.inc();
-            match pm {
-                ParamMode::Position => self.get_value_at(self.memory[pointer].try_into()?),
-                ParamMode::Immediate => Ok(self.memory[pointer]),
-                ParamMode::Illegal => Err(ComputerError::IllegalParamMode),
+        let value = self.get_next();
+        match pm {
+            ParamMode::Position => Ok(self.get_value_at(Pointer::from_i64(value)?)),
+            ParamMode::Relative => {
+                Ok(self.get_value_at(Pointer::from_i64(self.relative_base + value)?))
             }
-        } else {
-            Err(ComputerError::NoMoreData)
+            ParamMode::Immediate => Ok(value),
+            ParamMode::Illegal => Err(ComputerError::IllegalParamMode),
         }
     }
 
+    #[inline]
     pub fn get_address(&mut self, pm: ParamMode) -> Result<Pointer, ComputerError> {
-        let pointer = self.pointer.get();
-        if pointer <= self.memory.len() {
-            self.pointer.inc();
-            match pm {
-                ParamMode::Position => self.memory[pointer].try_into(),
-                ParamMode::Immediate | ParamMode::Illegal => Err(ComputerError::IllegalParamMode),
-            }
-        } else {
-            Err(ComputerError::NoMoreData)
+        let value = self.get_next();
+        match pm {
+            ParamMode::Position => Pointer::from_i64(value),
+            ParamMode::Relative => Pointer::from_i64(self.relative_base + value),
+            ParamMode::Immediate | ParamMode::Illegal => Err(ComputerError::IllegalParamMode),
         }
     }
 
-    pub fn get_value_at(&self, addr: Pointer) -> Result<i64, ComputerError> {
-        self.memory
-            .get(addr.get())
-            .copied()
-            .ok_or(ComputerError::IllegalAddress(addr))
-    }
-
-    pub fn set_value(&mut self, addr: Pointer, value: i64) -> Result<(), ComputerError> {
-        if self.memory.len() <= addr.get() {
-            return Err(ComputerError::IllegalAddress(addr));
-        }
-        self.memory[addr.get()] = value;
-        Ok(())
+    pub fn set_value(&mut self, addr: Pointer, value: i64) {
+        self.memory.insert(addr, value);
     }
 
     #[inline]
@@ -133,5 +126,9 @@ impl State {
 
     pub fn set_pointer(&mut self, target: Pointer) {
         self.pointer = target
+    }
+
+    pub fn adjust_relative_base(&mut self, relative_base: i64) {
+        self.relative_base += relative_base
     }
 }

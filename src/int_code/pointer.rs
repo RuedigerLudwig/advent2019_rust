@@ -1,6 +1,7 @@
 use super::computer_error::ComputerError;
+use std::ops::Add;
 
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct Pointer(usize);
 
 impl std::fmt::Display for Pointer {
@@ -15,9 +16,12 @@ impl Pointer {
         Self(addr)
     }
 
-    #[inline]
-    pub fn get(&self) -> usize {
-        self.0
+    pub fn from_i64(addr: i64) -> Result<Self, ComputerError> {
+        if !addr.is_negative() {
+            Ok(Pointer(addr as usize))
+        } else {
+            Err(ComputerError::PointerMustNoBeNegative(addr))
+        }
     }
 
     #[inline]
@@ -31,14 +35,11 @@ impl Pointer {
     }
 }
 
-impl TryFrom<i64> for Pointer {
-    type Error = ComputerError;
+impl Add for Pointer {
+    type Output = Self;
 
-    fn try_from(value: i64) -> Result<Self, Self::Error> {
-        if !value.is_negative() {
-            Ok(Pointer(value as usize))
-        } else {
-            Err(ComputerError::IllegalPointerI64(value))
-        }
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
     }
 }

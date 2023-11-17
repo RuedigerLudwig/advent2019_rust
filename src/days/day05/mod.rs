@@ -15,7 +15,7 @@ impl DayTrait for Day {
         let mut computer = factory.build();
         computer.push_input(1);
         let mut result = 0;
-        for output in computer {
+        for output in computer.run_blocking() {
             result = output?;
         }
         Ok(result.into())
@@ -26,7 +26,7 @@ impl DayTrait for Day {
         let mut computer = factory.build();
         computer.push_input(5);
         let mut result = 0;
-        for output in computer {
+        for output in computer.run_blocking() {
             result = output?;
         }
         Ok(result.into())
@@ -47,7 +47,7 @@ mod test {
         let mut computer = factory.build();
 
         computer.run()?;
-        assert_eq!(computer.get_value_at(Pointer::new(4))?, 99);
+        assert_eq!(computer.get_value_at(Pointer::new(4)), 99);
 
         Ok(())
     }
@@ -59,17 +59,17 @@ mod test {
 
         let mut computer = factory.build();
         computer.push_input(7);
-        let result = computer.next().unwrap()?;
+        let result = computer.run_blocking().next().unwrap()?;
         assert_eq!(result, 999);
 
         let mut computer = factory.build();
         computer.push_input(8);
-        let result = computer.next().unwrap()?;
+        let result = computer.run_blocking().next().unwrap()?;
         assert_eq!(result, 1000);
 
         let mut computer = factory.build();
         computer.push_input(9);
-        let result = computer.next().unwrap()?;
+        let result = computer.run_blocking().next().unwrap()?;
         assert_eq!(result, 1001);
 
         Ok(())

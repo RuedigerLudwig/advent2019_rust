@@ -69,9 +69,9 @@ impl Amplifier {
             let mut computer = self.factory.build();
             computer.push_input(phase);
             computer.push_input(value);
-            if let Some(next_value) = computer.next() {
+            if let Some(next_value) = computer.run_blocking().next() {
                 value = next_value?;
-            }
+            };
         }
         Ok(value)
     }
@@ -90,7 +90,7 @@ impl Amplifier {
         loop {
             for computer in computers.iter_mut() {
                 computer.push_input(value);
-                if let Some(next_value) = computer.next() {
+                if let Some(next_value) = computer.run_blocking().next() {
                     value = next_value?;
                 } else {
                     return Ok(value);

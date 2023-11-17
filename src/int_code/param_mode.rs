@@ -3,6 +3,7 @@ use std::cell::Cell;
 pub enum ParamMode {
     Position,
     Immediate,
+    Relative,
     Illegal,
 }
 
@@ -11,6 +12,7 @@ impl From<usize> for ParamMode {
         match value {
             0 => ParamMode::Position,
             1 => ParamMode::Immediate,
+            2 => ParamMode::Relative,
             _ => ParamMode::Illegal,
         }
     }
