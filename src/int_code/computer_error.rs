@@ -11,7 +11,11 @@ pub enum ComputerError {
     #[error("IllegalAddress: {0}")]
     IllegalAddress(Pointer),
     #[error("IllegalOperation: {0}")]
-    IllegalOperation(i64),
+    IllegalOperation(usize),
     #[error("Machine is not running")]
     NotRunning,
+    #[error("Not an instruction {0}")]
+    NotAnInstruction(i64),
+    #[error("Illegale ParamMode")]
+    IllegalParamMode,
 }

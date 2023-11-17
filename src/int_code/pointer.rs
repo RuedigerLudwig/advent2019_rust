@@ -24,6 +24,11 @@ impl Pointer {
     pub fn inc(&mut self) {
         self.0 += 1;
     }
+
+    #[inline]
+    pub fn dec(&mut self) {
+        self.0 -= 1;
+    }
 }
 
 impl TryFrom<i64> for Pointer {

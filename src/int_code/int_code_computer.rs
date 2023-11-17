@@ -1,4 +1,4 @@
-use super::{computer_error::ComputerError, state::State, Pointer, StepResult};
+use super::{computer_error::ComputerError, state::State, ExternalStepResult, Pointer};
 use itertools::Itertools;
 use std::str::FromStr;
 
@@ -13,17 +13,26 @@ impl IntCodeComputer {
         }
     }
 
-    pub fn run(&mut self) -> Result<(), ComputerError> {
-        while matches!(self.state.next_instruction()?, StepResult::Continue) {}
-        Ok(())
+    pub fn run(&mut self) -> Result<Option<i64>, ComputerError> {
+        loop {
+            match self.state.next_instruction()? {
+                ExternalStepResult::Continue => {}
+                ExternalStepResult::Output(value) => return Ok(Some(value)),
+                ExternalStepResult::Halted => return Ok(None),
+            }
+        }
     }
 
-    pub fn get_address(&self, addr: Pointer) -> Result<i64, ComputerError> {
-        self.state.get_value(addr)
+    pub fn get_value_at(&self, addr: Pointer) -> Result<i64, ComputerError> {
+        self.state.get_value_at(addr)
     }
 
     pub fn set_address(&mut self, addr: Pointer, value: i64) -> Result<(), ComputerError> {
         self.state.set_value(addr, value)
+    }
+
+    pub fn push_input(&mut self, value: i64) {
+        self.state.push_input(value);
     }
 }
 
