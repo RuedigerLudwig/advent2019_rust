@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 use std::{fs, io};
 
+use itertools::Itertools;
+
 #[allow(dead_code)]
 #[derive(Debug, Default, PartialEq, Eq)]
 pub enum ResultType {
@@ -32,6 +34,17 @@ impl From<Vec<String>> for ResultType {
     #[inline]
     fn from(value: Vec<String>) -> Self {
         ResultType::Lines(value)
+    }
+}
+
+impl From<Vec<Vec<bool>>> for ResultType {
+    #[inline]
+    fn from(lines: Vec<Vec<bool>>) -> Self {
+        let lines = lines
+            .into_iter()
+            .map(|row| row.into_iter().map(|p| if p { '█' } else { ' ' }).join(""))
+            .collect_vec();
+        ResultType::Lines(lines)
     }
 }
 
