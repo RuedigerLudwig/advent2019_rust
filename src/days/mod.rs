@@ -1,6 +1,7 @@
 mod day01;
 mod day02;
 mod day03;
+mod day04;
 mod template;
 
 pub use template::{read_string, DayTrait, DayType, PartType, RResult, ResultType, UnitResult};
@@ -9,13 +10,14 @@ pub mod day_provider {
     use super::*;
     use thiserror::Error;
 
-    const MAX_DAY: DayType = 3;
+    const MAX_DAY: DayType = 4;
 
     pub fn get_day(day_num: DayType) -> core::result::Result<Box<dyn DayTrait>, ProviderError> {
         match day_num {
             1 => Ok(Box::new(day01::Day)),
             2 => Ok(Box::new(day02::Day)),
             3 => Ok(Box::new(day03::Day)),
+            4 => Ok(Box::new(day04::Day)),
             _ => Err(ProviderError::InvalidNumber(day_num)),
         }
     }
