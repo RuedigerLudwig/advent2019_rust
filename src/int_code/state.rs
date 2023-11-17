@@ -4,16 +4,10 @@ use super::computer_error::ComputerError;
 use super::param_mode::ParamMode;
 use super::{instructions, Pointer};
 
-pub enum InternalStepResult {
+pub enum StepResult {
     Continue,
     Output(i64),
     Waiting,
-    Halted,
-}
-
-pub enum ExternalStepResult {
-    Continue,
-    Output(i64),
     Halted,
 }
 
@@ -41,12 +35,12 @@ impl State {
         }
     }
 
-    pub fn next_instruction(&mut self) -> Result<ExternalStepResult, ComputerError> {
+    pub fn next_instruction(&mut self) -> Result<StepResult, ComputerError> {
         match self.running {
             RunningState::Running => {}
             RunningState::Waiting => {
                 if self.input_buffer.is_empty() {
-                    return Ok(ExternalStepResult::Continue);
+                    return Ok(StepResult::Waiting);
                 }
                 self.running = RunningState::Running;
             }
@@ -54,15 +48,15 @@ impl State {
         }
 
         match instructions::run_instruction(self) {
-            Ok(InternalStepResult::Continue) => Ok(ExternalStepResult::Continue),
-            Ok(InternalStepResult::Waiting) => {
+            Ok(StepResult::Continue) => Ok(StepResult::Continue),
+            Ok(StepResult::Waiting) => {
                 self.running = RunningState::Waiting;
-                Ok(ExternalStepResult::Continue)
+                Ok(StepResult::Waiting)
             }
-            Ok(InternalStepResult::Output(value)) => Ok(ExternalStepResult::Output(value)),
-            Ok(InternalStepResult::Halted) => {
+            Ok(StepResult::Output(value)) => Ok(StepResult::Output(value)),
+            Ok(StepResult::Halted) => {
                 self.running = RunningState::Halted;
-                Ok(ExternalStepResult::Halted)
+                Ok(StepResult::Halted)
             }
             Err(err) => {
                 self.running = RunningState::Halted;

@@ -5,6 +5,7 @@ mod param_mode;
 mod pointer;
 mod state;
 
-pub use int_code_computer::IntCodeComputer;
+pub use computer_error::ComputerError;
+pub use int_code_computer::ComputerFactory;
 pub use pointer::Pointer;
-pub use state::ExternalStepResult;
+pub use state::StepResult;

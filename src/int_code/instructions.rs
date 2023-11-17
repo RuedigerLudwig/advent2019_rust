@@ -1,10 +1,10 @@
 use super::{
     computer_error::ComputerError,
     param_mode::ParamModeDispenser,
-    state::{InternalStepResult, State},
+    state::{State, StepResult},
 };
 
-pub fn run_instruction(state: &mut State) -> Result<InternalStepResult, ComputerError> {
+pub fn run_instruction(state: &mut State) -> Result<StepResult, ComputerError> {
     let (code, pd) = analyze_instruction(state.get_next()?)?;
 
     match code {
@@ -32,10 +32,8 @@ fn analyze_instruction(instruction: i64) -> Result<(usize, ParamModeDispenser), 
 }
 
 trait Instruction {
-    fn calc(
-        state: &mut State,
-        parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError>;
+    fn calc(state: &mut State, parameters: ParamModeDispenser)
+        -> Result<StepResult, ComputerError>;
 }
 
 struct Add;
@@ -43,13 +41,13 @@ impl Instruction for Add {
     fn calc(
         state: &mut State,
         parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
+    ) -> Result<StepResult, ComputerError> {
         let op1 = state.get_value(parameters.next())?;
         let op2 = state.get_value(parameters.next())?;
         let target = state.get_address(parameters.next())?;
 
         state.set_value(target, op1 + op2)?;
-        Ok(InternalStepResult::Continue)
+        Ok(StepResult::Continue)
     }
 }
 
@@ -58,13 +56,13 @@ impl Instruction for Mul {
     fn calc(
         state: &mut State,
         parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
+    ) -> Result<StepResult, ComputerError> {
         let op1 = state.get_value(parameters.next())?;
         let op2 = state.get_value(parameters.next())?;
         let target = state.get_address(parameters.next())?;
 
         state.set_value(target, op1 * op2)?;
-        Ok(InternalStepResult::Continue)
+        Ok(StepResult::Continue)
     }
 }
 
@@ -73,8 +71,8 @@ impl Instruction for Stop {
     fn calc(
         _state: &mut State,
         _parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
-        Ok(InternalStepResult::Halted)
+    ) -> Result<StepResult, ComputerError> {
+        Ok(StepResult::Halted)
     }
 }
 
@@ -83,14 +81,14 @@ impl Instruction for Input {
     fn calc(
         state: &mut State,
         parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
+    ) -> Result<StepResult, ComputerError> {
         if let Some(value) = state.get_input() {
             let target = state.get_address(parameters.next())?;
             state.set_value(target, value)?;
-            Ok(InternalStepResult::Continue)
+            Ok(StepResult::Continue)
         } else {
             state.repeat();
-            Ok(InternalStepResult::Waiting)
+            Ok(StepResult::Waiting)
         }
     }
 }
@@ -100,9 +98,9 @@ impl Instruction for Output {
     fn calc(
         state: &mut State,
         parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
+    ) -> Result<StepResult, ComputerError> {
         let op1 = state.get_value(parameters.next())?;
-        Ok(InternalStepResult::Output(op1))
+        Ok(StepResult::Output(op1))
     }
 }
 
@@ -111,13 +109,13 @@ impl Instruction for JumpIfTrue {
     fn calc(
         state: &mut State,
         parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
+    ) -> Result<StepResult, ComputerError> {
         let test = state.get_value(parameters.next())?;
         let target = state.get_value(parameters.next())?;
         if test != 0 {
             state.set_pointer(target.try_into()?);
         }
-        Ok(InternalStepResult::Continue)
+        Ok(StepResult::Continue)
     }
 }
 
@@ -126,13 +124,13 @@ impl Instruction for JumpIfFalse {
     fn calc(
         state: &mut State,
         parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
+    ) -> Result<StepResult, ComputerError> {
         let test = state.get_value(parameters.next())?;
         let target = state.get_value(parameters.next())?;
         if test == 0 {
             state.set_pointer(target.try_into()?);
         }
-        Ok(InternalStepResult::Continue)
+        Ok(StepResult::Continue)
     }
 }
 
@@ -141,14 +139,14 @@ impl Instruction for LessThan {
     fn calc(
         state: &mut State,
         parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
+    ) -> Result<StepResult, ComputerError> {
         let op1 = state.get_value(parameters.next())?;
         let op2 = state.get_value(parameters.next())?;
         let target = state.get_address(parameters.next())?;
 
         let result = if op1 < op2 { 1 } else { 0 };
         state.set_value(target, result)?;
-        Ok(InternalStepResult::Continue)
+        Ok(StepResult::Continue)
     }
 }
 
@@ -157,13 +155,13 @@ impl Instruction for Equals {
     fn calc(
         state: &mut State,
         parameters: ParamModeDispenser,
-    ) -> Result<InternalStepResult, ComputerError> {
+    ) -> Result<StepResult, ComputerError> {
         let op1 = state.get_value(parameters.next())?;
         let op2 = state.get_value(parameters.next())?;
         let target = state.get_address(parameters.next())?;
 
         let result = if op1 == op2 { 1 } else { 0 };
         state.set_value(target, result)?;
-        Ok(InternalStepResult::Continue)
+        Ok(StepResult::Continue)
     }
 }
