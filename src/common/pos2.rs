@@ -114,7 +114,17 @@ where
         if self.x.is_zero() && self.y.is_zero() {
             Err(self)
         } else {
-            gcd(self.x, self.y)
+            let x = if self.x >= T::zero() {
+                self.x
+            } else {
+                T::zero() - self.x
+            };
+            let y = if self.y >= T::zero() {
+                self.y
+            } else {
+                T::zero() - self.y
+            };
+            gcd(x, y)
                 .map(|ggt| (Pos2::new(self.x / ggt, self.y / ggt), ggt))
                 .ok_or(self)
         }
