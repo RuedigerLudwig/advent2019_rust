@@ -14,10 +14,10 @@ impl DayTrait for Day {
 
     fn part1(&self, input: &str) -> RResult {
         let factory = ComputerFactory::init(input)?;
-        let mut computer = factory.build();
-        computer.push_input(1);
+        let mut computer = factory.build_blocking();
+        computer.push_i64(1);
         let mut result = 0;
-        for output in computer.run_blocking() {
+        for output in computer.as_iter() {
             result = output?;
         }
         Ok(result.into())
@@ -25,10 +25,10 @@ impl DayTrait for Day {
 
     fn part2(&self, input: &str) -> RResult {
         let factory = ComputerFactory::init(input)?;
-        let mut computer = factory.build();
-        computer.push_input(2);
+        let mut computer = factory.build_blocking();
+        computer.push_i64(2);
         let mut result = 0;
-        for output in computer.run_blocking() {
+        for output in computer.as_iter() {
             result = output?;
         }
         Ok(result.into())
@@ -53,8 +53,8 @@ mod test {
         ];
         let factory = ComputerFactory::new(input.clone());
 
-        let mut computer = factory.build();
-        let result: Vec<_> = computer.run_blocking().try_collect()?;
+        let mut computer = factory.build_blocking();
+        let result: Vec<_> = computer.as_iter().try_collect()?;
         assert_eq!(result, input);
         Ok(())
     }

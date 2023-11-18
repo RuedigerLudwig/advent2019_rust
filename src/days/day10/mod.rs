@@ -183,7 +183,7 @@ impl Station {
                 RefCell::new(
                     group
                         .into_iter()
-                        .sorted_by_key(|pos| pos.factor)
+                        .sorted_by_key(|pos| -pos.factor)
                         .collect_vec(),
                 )
             })

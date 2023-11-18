@@ -66,11 +66,11 @@ impl Amplifier {
     pub fn run(&self, phase_value: &[i64]) -> Result<i64, DayError> {
         let mut value = 0;
         for &phase in phase_value {
-            let mut computer = self.factory.build();
-            computer.push_input(phase);
-            computer.push_input(value);
-            if let Some(next_value) = computer.run_blocking().next() {
-                value = next_value?;
+            let mut computer = self.factory.build_blocking();
+            computer.push_i64(phase);
+            computer.push_i64(value);
+            if let Some(next_value) = computer.expect_i64()? {
+                value = next_value;
             };
         }
         Ok(value)
@@ -79,9 +79,9 @@ impl Amplifier {
     pub fn run_recursive(&self, phase_value: &[i64]) -> Result<i64, DayError> {
         let mut computers = phase_value
             .iter()
-            .zip(self.factory.iter())
+            .zip(self.factory.iter_blocking())
             .map(|(phase, mut computer)| {
-                computer.push_input(*phase);
+                computer.push_i64(*phase);
                 computer
             })
             .collect_vec();
@@ -89,9 +89,9 @@ impl Amplifier {
         let mut value = 0;
         loop {
             for computer in computers.iter_mut() {
-                computer.push_input(value);
-                if let Some(next_value) = computer.run_blocking().next() {
-                    value = next_value?;
+                computer.push_i64(value);
+                if let Some(next_value) = computer.expect_i64()? {
+                    value = next_value;
                 } else {
                     return Ok(value);
                 }

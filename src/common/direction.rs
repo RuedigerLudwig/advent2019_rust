@@ -120,11 +120,14 @@ where
     }
 }
 
-impl Add<Direction> for Pos2<i32> {
-    type Output = Pos2<i32>;
+impl<T> Add<Direction> for Pos2<T>
+where
+    T: Num + Signed + Copy,
+{
+    type Output = Pos2<T>;
 
     fn add(self, rhs: Direction) -> Self::Output {
-        let rhs: Pos2<i32> = rhs.into();
+        let rhs: Self = rhs.into();
         self + rhs
     }
 }

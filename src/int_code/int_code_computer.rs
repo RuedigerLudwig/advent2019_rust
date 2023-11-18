@@ -1,11 +1,11 @@
 use super::{computer_error::ComputerError, state::State, Pointer, StepResult};
 use itertools::Itertools;
 
-pub struct IntCodeComputer {
+pub struct BlockingIntCodeRunner {
     state: State,
 }
 
-impl IntCodeComputer {
+impl BlockingIntCodeRunner {
     fn new(memory: &[i64]) -> Self {
         Self {
             state: State::new(memory),
@@ -16,40 +16,64 @@ impl IntCodeComputer {
         self.state.get_value_at(addr)
     }
 
-    pub fn set_address(&mut self, addr: Pointer, value: i64) {
+    pub fn manipulate_memory(&mut self, addr: Pointer, value: i64) {
         self.state.set_value(addr, value)
     }
 
-    pub fn push_input(&mut self, value: i64) {
-        self.state.push_input(value);
-    }
-
-    pub fn run(&mut self) -> Result<(), ComputerError> {
-        if let Some(result) = self.run_blocking().next() {
-            let _ = result?;
+    fn run(&mut self) -> Result<Option<i64>, ComputerError> {
+        loop {
+            match self.state.next_instruction()? {
+                StepResult::Waiting | StepResult::Continue => {}
+                StepResult::Output(value) => return Ok(Some(value)),
+                StepResult::Halted => return Ok(None),
+            }
         }
-        Ok(())
     }
 
-    pub fn run_blocking(&mut self) -> impl Iterator<Item = Result<i64, ComputerError>> + '_ {
-        struct BlockingIter<'a>(&'a mut IntCodeComputer);
+    pub fn as_iter(&mut self) -> impl Iterator<Item = Result<i64, ComputerError>> + '_ {
+        struct BlockingRunner<'a>(&'a mut BlockingIntCodeRunner);
 
-        impl<'a> Iterator for BlockingIter<'a> {
-            type Item = Result<i64, ComputerError>;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                loop {
-                    match self.0.state.next_instruction() {
-                        Ok(StepResult::Waiting) | Ok(StepResult::Continue) => {}
-                        Ok(StepResult::Output(value)) => return Some(Ok(value)),
-                        Ok(StepResult::Halted) => return None,
-                        Err(err) => return Some(Err(err)),
-                    }
-                }
+        impl<'a> BlockingRunner<'a> {
+            #[inline]
+            pub fn new(computer: &'a mut BlockingIntCodeRunner) -> BlockingRunner<'a> {
+                Self(computer)
             }
         }
 
-        BlockingIter(self)
+        impl<'a> Iterator for BlockingRunner<'a> {
+            type Item = Result<i64, ComputerError>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.0.run().transpose()
+            }
+        }
+        BlockingRunner::new(self)
+    }
+
+    #[inline]
+    pub fn run_till_halt(&mut self) -> Result<(), ComputerError> {
+        while self.run()?.is_some() {}
+        Ok(())
+    }
+
+    #[inline]
+    pub fn push_i64(&mut self, value: i64) {
+        self.state.push_input(value);
+    }
+
+    #[inline]
+    pub fn push_bool(&mut self, input: bool) {
+        self.push_i64(if input { 1 } else { 0 })
+    }
+
+    #[inline]
+    pub fn expect_i64(&mut self) -> Result<Option<i64>, ComputerError> {
+        self.run()
+    }
+
+    #[inline]
+    pub fn expect_bool(&mut self) -> Result<Option<bool>, ComputerError> {
+        Ok(self.run()?.map(|value| value != 0))
     }
 }
 
@@ -58,6 +82,7 @@ pub struct ComputerFactory {
 }
 
 impl ComputerFactory {
+    #[inline]
     pub fn new(data: Vec<i64>) -> Self {
         Self { data }
     }
@@ -70,18 +95,18 @@ impl ComputerFactory {
         Ok(Self::new(data))
     }
 
-    pub fn build(&self) -> IntCodeComputer {
-        IntCodeComputer::new(&self.data)
+    pub fn build_blocking(&self) -> BlockingIntCodeRunner {
+        BlockingIntCodeRunner::new(&self.data)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = IntCodeComputer> + '_ {
+    pub fn iter_blocking(&self) -> impl Iterator<Item = BlockingIntCodeRunner> + '_ {
         struct ComputerFactoryIterator<'a>(&'a ComputerFactory);
 
         impl<'a> Iterator for ComputerFactoryIterator<'a> {
-            type Item = IntCodeComputer;
+            type Item = BlockingIntCodeRunner;
 
             fn next(&mut self) -> Option<Self::Item> {
-                Some(self.0.build())
+                Some(self.0.build_blocking())
             }
         }
         ComputerFactoryIterator(self)

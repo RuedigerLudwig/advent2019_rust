@@ -12,10 +12,10 @@ impl DayTrait for Day {
 
     fn part1(&self, input: &str) -> RResult {
         let factory = ComputerFactory::init(input)?;
-        let mut computer = factory.build();
-        computer.push_input(1);
+        let mut computer = factory.build_blocking();
+        computer.push_i64(1);
         let mut result = 0;
-        for output in computer.run_blocking() {
+        for output in computer.as_iter() {
             result = output?;
         }
         Ok(result.into())
@@ -23,10 +23,10 @@ impl DayTrait for Day {
 
     fn part2(&self, input: &str) -> RResult {
         let factory = ComputerFactory::init(input)?;
-        let mut computer = factory.build();
-        computer.push_input(5);
+        let mut computer = factory.build_blocking();
+        computer.push_i64(5);
         let mut result = 0;
-        for output in computer.run_blocking() {
+        for output in computer.as_iter() {
             result = output?;
         }
         Ok(result.into())
@@ -44,9 +44,9 @@ mod test {
     fn param_mode() -> UnitResult {
         let input = "1101,100,-1,4,0";
         let factory = ComputerFactory::init(input)?;
-        let mut computer = factory.build();
+        let mut computer = factory.build_blocking();
 
-        computer.run()?;
+        computer.run_till_halt()?;
         assert_eq!(computer.get_value_at(Pointer::new(4)), 99);
 
         Ok(())
@@ -57,20 +57,20 @@ mod test {
         let input = "3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99";
         let factory = ComputerFactory::init(input)?;
 
-        let mut computer = factory.build();
-        computer.push_input(7);
-        let result = computer.run_blocking().next().unwrap()?;
-        assert_eq!(result, 999);
+        let mut computer = factory.build_blocking();
+        computer.push_i64(7);
+        let result = computer.expect_i64()?;
+        assert_eq!(result, Some(999));
 
-        let mut computer = factory.build();
-        computer.push_input(8);
-        let result = computer.run_blocking().next().unwrap()?;
-        assert_eq!(result, 1000);
+        let mut computer = factory.build_blocking();
+        computer.push_i64(8);
+        let result = computer.expect_i64()?;
+        assert_eq!(result, Some(1000));
 
-        let mut computer = factory.build();
-        computer.push_input(9);
-        let result = computer.run_blocking().next().unwrap()?;
-        assert_eq!(result, 1001);
+        let mut computer = factory.build_blocking();
+        computer.push_i64(9);
+        let result = computer.expect_i64()?;
+        assert_eq!(result, Some(1001));
 
         Ok(())
     }
