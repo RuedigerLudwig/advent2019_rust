@@ -17,7 +17,7 @@ impl DayTrait for Day {
         computer.manipulate_memory(Pointer::new(1), 12);
         computer.manipulate_memory(Pointer::new(2), 2);
         computer.run_till_halt()?;
-        Ok(computer.get_value_at(Pointer::new(0)).into())
+        Ok(computer.get_memory_value(Pointer::new(0)).into())
     }
 
     fn part2(&self, input: &str) -> RResult {
@@ -29,7 +29,7 @@ impl DayTrait for Day {
                 computer.manipulate_memory(Pointer::new(1), noun);
                 computer.manipulate_memory(Pointer::new(2), verb);
                 computer.run_till_halt()?;
-                if computer.get_value_at(Pointer::new(0)) == target {
+                if computer.get_memory_value(Pointer::new(0)) == target {
                     return Ok((noun * 100 + verb).into());
                 }
             }
@@ -54,7 +54,7 @@ mod test {
 
         computer.run_till_halt()?;
 
-        assert_eq!(computer.get_value_at(Pointer::new(0)), 3500);
+        assert_eq!(computer.get_memory_value(Pointer::new(0)), 3500);
 
         Ok(())
     }

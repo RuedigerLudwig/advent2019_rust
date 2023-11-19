@@ -47,7 +47,7 @@ mod test {
         let mut computer = factory.build_blocking();
 
         computer.run_till_halt()?;
-        assert_eq!(computer.get_value_at(Pointer::new(4)), 99);
+        assert_eq!(computer.get_memory_value(Pointer::new(4)), 99);
 
         Ok(())
     }

@@ -12,14 +12,6 @@ impl BlockingIntCodeRunner {
         }
     }
 
-    pub fn get_value_at(&self, addr: Pointer) -> i64 {
-        self.state.get_value_at(addr)
-    }
-
-    pub fn manipulate_memory(&mut self, addr: Pointer, value: i64) {
-        self.state.set_value(addr, value)
-    }
-
     fn run(&mut self) -> Result<Option<i64>, ComputerError> {
         loop {
             match self.state.next_instruction()? {
@@ -28,6 +20,14 @@ impl BlockingIntCodeRunner {
                 StepResult::Halted => return Ok(None),
             }
         }
+    }
+
+    pub fn get_memory_value(&self, addr: Pointer) -> i64 {
+        self.state.get_value_at(addr)
+    }
+
+    pub fn manipulate_memory(&mut self, addr: Pointer, value: i64) {
+        self.state.set_value(addr, value)
     }
 
     pub fn as_iter(&mut self) -> impl Iterator<Item = Result<i64, ComputerError>> + '_ {
@@ -74,6 +74,16 @@ impl BlockingIntCodeRunner {
     #[inline]
     pub fn expect_bool(&mut self) -> Result<Option<bool>, ComputerError> {
         Ok(self.run()?.map(|value| value != 0))
+    }
+
+    #[inline]
+    pub fn take_exacltly(&mut self, n: usize) -> Result<Option<Vec<i64>>, ComputerError> {
+        let result: Vec<i64> = self.as_iter().take(n).try_collect()?;
+        if result.len() != n {
+            Ok(None)
+        } else {
+            Ok(Some(result))
+        }
     }
 }
 
