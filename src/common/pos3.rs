@@ -155,6 +155,15 @@ where
     }
 }
 
+impl<T> std::iter::Sum for Pos3<T>
+where
+    T: Num + Copy,
+{
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.reduce(Add::add).unwrap_or(Pos3::zero())
+    }
+}
+
 impl<T, P: Into<Pos3<T>>> Sub<P> for Pos3<T>
 where
     T: Num + Copy,
