@@ -77,7 +77,7 @@ impl Game {
         let mut blocks = 0;
         let mut score = 0;
         let mut paddle_pos = None;
-        while let Some(v) = brain.take_exacltly(3)? {
+        while let Some(v) = brain.maybe_take_exacltly(3)? {
             let [x, y, payload] = v[..] else {
                 unreachable!();
             };
@@ -91,9 +91,9 @@ impl Game {
                 Tile::Block => blocks += 1,
                 Tile::Paddle => paddle_pos = Some(x),
                 Tile::Ball => match paddle_pos {
-                    Some(paddle_pos) if x > paddle_pos => brain.push_i64(1),
-                    Some(_) => brain.push_i64(-1),
-                    None => brain.push_i64(0),
+                    Some(paddle_pos) if x > paddle_pos => brain.send_i64(1),
+                    Some(_) => brain.send_i64(-1),
+                    None => brain.send_i64(0),
                 },
                 _ => {}
             }

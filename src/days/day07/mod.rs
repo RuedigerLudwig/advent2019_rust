@@ -67,9 +67,9 @@ impl Amplifier {
         let mut value = 0;
         for &phase in phase_value {
             let mut computer = self.factory.build_blocking();
-            computer.push_i64(phase);
-            computer.push_i64(value);
-            if let Some(next_value) = computer.expect_i64()? {
+            computer.send_i64(phase);
+            computer.send_i64(value);
+            if let Some(next_value) = computer.maybe_i64()? {
                 value = next_value;
             };
         }
@@ -81,7 +81,7 @@ impl Amplifier {
             .iter()
             .zip(self.factory.iter_blocking())
             .map(|(phase, mut computer)| {
-                computer.push_i64(*phase);
+                computer.send_i64(*phase);
                 computer
             })
             .collect_vec();
@@ -89,8 +89,8 @@ impl Amplifier {
         let mut value = 0;
         loop {
             for computer in computers.iter_mut() {
-                computer.push_i64(value);
-                if let Some(next_value) = computer.expect_i64()? {
+                computer.send_i64(value);
+                if let Some(next_value) = computer.maybe_i64()? {
                     value = next_value;
                 } else {
                     return Ok(value);

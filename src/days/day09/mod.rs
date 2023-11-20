@@ -15,7 +15,7 @@ impl DayTrait for Day {
     fn part1(&self, input: &str) -> RResult {
         let factory = ComputerFactory::init(input)?;
         let mut computer = factory.build_blocking();
-        computer.push_i64(1);
+        computer.send_i64(1);
         let mut result = 0;
         for output in computer.as_iter() {
             result = output?;
@@ -26,7 +26,7 @@ impl DayTrait for Day {
     fn part2(&self, input: &str) -> RResult {
         let factory = ComputerFactory::init(input)?;
         let mut computer = factory.build_blocking();
-        computer.push_i64(2);
+        computer.send_i64(2);
         let mut result = 0;
         for output in computer.as_iter() {
             result = output?;

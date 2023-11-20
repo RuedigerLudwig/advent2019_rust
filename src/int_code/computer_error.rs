@@ -12,4 +12,6 @@ pub enum ComputerError {
     IllegalParamMode,
     #[error("Illegal Pointer: {0}")]
     PointerMustNoBeNegative(i64),
+    #[error("Premature End of Output")]
+    PrematureEndOfOutput,
 }

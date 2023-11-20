@@ -57,27 +57,45 @@ impl BlockingIntCodeRunner {
     }
 
     #[inline]
-    pub fn push_i64(&mut self, value: i64) {
+    pub fn send_i64(&mut self, value: i64) {
         self.state.push_input(value);
     }
 
     #[inline]
-    pub fn push_bool(&mut self, input: bool) {
-        self.push_i64(if input { 1 } else { 0 })
+    pub fn send_bool(&mut self, input: bool) {
+        self.send_i64(if input { 1 } else { 0 })
     }
 
     #[inline]
-    pub fn expect_i64(&mut self) -> Result<Option<i64>, ComputerError> {
+    pub fn expect_i64(&mut self) -> Result<i64, ComputerError> {
+        if let Some(value) = self.run()? {
+            Ok(value)
+        } else {
+            Err(ComputerError::PrematureEndOfOutput)
+        }
+    }
+
+    #[inline]
+    pub fn maybe_i64(&mut self) -> Result<Option<i64>, ComputerError> {
         self.run()
     }
 
     #[inline]
-    pub fn expect_bool(&mut self) -> Result<Option<bool>, ComputerError> {
+    pub fn expect_bool(&mut self) -> Result<bool, ComputerError> {
+        if let Some(value) = self.run()? {
+            Ok(value != 0)
+        } else {
+            Err(ComputerError::PrematureEndOfOutput)
+        }
+    }
+
+    #[inline]
+    pub fn maybe_bool(&mut self) -> Result<Option<bool>, ComputerError> {
         Ok(self.run()?.map(|value| value != 0))
     }
 
     #[inline]
-    pub fn take_exacltly(&mut self, n: usize) -> Result<Option<Vec<i64>>, ComputerError> {
+    pub fn maybe_take_exacltly(&mut self, n: usize) -> Result<Option<Vec<i64>>, ComputerError> {
         let result: Vec<i64> = self.as_iter().take(n).try_collect()?;
         if result.len() != n {
             Ok(None)

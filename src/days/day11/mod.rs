@@ -32,8 +32,6 @@ impl DayTrait for Day {
 enum DayError {
     #[error("Computer Error")]
     ComputerError(#[from] ComputerError),
-    #[error("Unexpected end of process")]
-    EarlyEndOfProcess,
 }
 
 struct Robot {
@@ -53,16 +51,14 @@ impl Robot {
         let mut pos = Pos2::splat(0);
         let mut facing = Direction::North;
         self.tiles.insert(pos, starting_color);
-        self.brain.push_bool(starting_color);
-        while let Some(color) = self.brain.expect_bool()? {
+        self.brain.send_bool(starting_color);
+        while let Some(color) = self.brain.maybe_bool()? {
             self.tiles.insert(pos, color);
-            let Some(turn_right) = self.brain.expect_bool()? else {
-                return Err(DayError::EarlyEndOfProcess);
-            };
+            let turn_right = self.brain.expect_bool()?;
             facing = facing + if turn_right { Turn::Right } else { Turn::Left };
             pos += facing;
             let color = self.tiles.get(&pos).copied().unwrap_or(false);
-            self.brain.push_bool(color);
+            self.brain.send_bool(color);
         }
         Ok(())
     }
