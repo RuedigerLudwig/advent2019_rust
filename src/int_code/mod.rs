@@ -6,6 +6,6 @@ mod pointer;
 mod state;
 
 pub use computer_error::ComputerError;
-pub use int_code_computer::{BlockingIntCodeRunner, ComputerFactory};
+pub use int_code_computer::{ComputerFactory, IntCodeComputer};
 pub use pointer::Pointer;
 pub use state::StepResult;

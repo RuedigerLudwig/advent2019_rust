@@ -14,4 +14,6 @@ pub enum ComputerError {
     PointerMustNoBeNegative(i64),
     #[error("Premature End of Output")]
     PrematureEndOfOutput,
+    #[error("Waiting for Input")]
+    WaitingForInput,
 }

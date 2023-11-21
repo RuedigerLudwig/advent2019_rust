@@ -1,6 +1,6 @@
 use crate::{
     common::pos2::Pos2,
-    int_code::{BlockingIntCodeRunner, ComputerError, ComputerFactory, Pointer},
+    int_code::{ComputerError, ComputerFactory, IntCodeComputer, Pointer},
 };
 
 use super::{DayTrait, DayType, RResult};
@@ -16,13 +16,13 @@ impl DayTrait for Day {
     }
 
     fn part1(&self, input: &str) -> RResult {
-        let brain = ComputerFactory::init(input)?.build_blocking();
+        let brain = ComputerFactory::init(input)?.build();
         let game = Game::run(brain)?;
         Ok(game.blocks().into())
     }
 
     fn part2(&self, input: &str) -> RResult {
-        let mut brain = ComputerFactory::init(input)?.build_blocking();
+        let mut brain = ComputerFactory::init(input)?.build();
         brain.manipulate_memory(Pointer::new(0), 2);
         let result = Game::run(brain)?;
         Ok(result.score()?.into())
@@ -72,7 +72,7 @@ struct Game {
 const SCORE: (i64, i64) = (-1, 0);
 
 impl Game {
-    pub fn run(mut brain: BlockingIntCodeRunner) -> Result<Self, DayError> {
+    pub fn run(mut brain: IntCodeComputer) -> Result<Self, DayError> {
         let mut tiles = HashMap::new();
         let mut blocks = 0;
         let mut score = 0;

@@ -1,11 +1,11 @@
 use super::{computer_error::ComputerError, state::State, Pointer, StepResult};
 use itertools::Itertools;
 
-pub struct BlockingIntCodeRunner {
+pub struct IntCodeComputer {
     state: State,
 }
 
-impl BlockingIntCodeRunner {
+impl IntCodeComputer {
     fn new(memory: &[i64]) -> Self {
         Self {
             state: State::new(memory),
@@ -15,9 +15,10 @@ impl BlockingIntCodeRunner {
     fn run(&mut self) -> Result<Option<i64>, ComputerError> {
         loop {
             match self.state.next_instruction()? {
-                StepResult::Waiting | StepResult::Continue => {}
+                StepResult::Continue => {}
                 StepResult::Output(value) => return Ok(Some(value)),
                 StepResult::Halted => return Ok(None),
+                StepResult::Waiting => return Err(ComputerError::WaitingForInput),
             }
         }
     }
@@ -31,11 +32,11 @@ impl BlockingIntCodeRunner {
     }
 
     pub fn as_iter(&mut self) -> impl Iterator<Item = Result<i64, ComputerError>> + '_ {
-        struct BlockingRunner<'a>(&'a mut BlockingIntCodeRunner);
+        struct BlockingRunner<'a>(&'a mut IntCodeComputer);
 
         impl<'a> BlockingRunner<'a> {
             #[inline]
-            pub fn new(computer: &'a mut BlockingIntCodeRunner) -> BlockingRunner<'a> {
+            pub fn new(computer: &'a mut IntCodeComputer) -> BlockingRunner<'a> {
                 Self(computer)
             }
         }
@@ -123,20 +124,13 @@ impl ComputerFactory {
         Ok(Self::new(data))
     }
 
-    pub fn build_blocking(&self) -> BlockingIntCodeRunner {
-        BlockingIntCodeRunner::new(&self.data)
-    }
-
-    pub fn iter_blocking(&self) -> impl Iterator<Item = BlockingIntCodeRunner> + '_ {
-        struct ComputerFactoryIterator<'a>(&'a ComputerFactory);
-
-        impl<'a> Iterator for ComputerFactoryIterator<'a> {
-            type Item = BlockingIntCodeRunner;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                Some(self.0.build_blocking())
-            }
-        }
-        ComputerFactoryIterator(self)
+    /**
+     * Creates an IntCodeComputer.
+     * This version must never wait for Input,
+     * i.e. the Input must be pushed before it is requested by this IntCodeComputer
+     * otherwise it will return an error
+     */
+    pub fn build(&self) -> IntCodeComputer {
+        IntCodeComputer::new(&self.data)
     }
 }

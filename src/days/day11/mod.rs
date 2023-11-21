@@ -1,6 +1,6 @@
 use crate::{
     common::{area::Area, direction::Direction, pos2::Pos2, turn::Turn},
-    int_code::{BlockingIntCodeRunner, ComputerError, ComputerFactory},
+    int_code::{ComputerError, ComputerFactory, IntCodeComputer},
 };
 
 use super::{DayTrait, DayType, RResult};
@@ -35,14 +35,14 @@ enum DayError {
 }
 
 struct Robot {
-    brain: BlockingIntCodeRunner,
+    brain: IntCodeComputer,
     tiles: HashMap<Pos2<i64>, bool>,
 }
 
 impl Robot {
     pub fn new(code: &str) -> Result<Self, DayError> {
         Ok(Self {
-            brain: ComputerFactory::init(code)?.build_blocking(),
+            brain: ComputerFactory::init(code)?.build(),
             tiles: HashMap::new(),
         })
     }

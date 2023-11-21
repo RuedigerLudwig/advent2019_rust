@@ -11,14 +11,14 @@ impl DayTrait for Day {
     }
 
     fn part1(&self, input: &str) -> RResult {
-        let mut brain = ComputerFactory::init(input)?.build_blocking();
+        let mut brain = ComputerFactory::init(input)?.build();
         let maze = maze::Maze::new(&mut brain)?;
 
         Ok(maze.steps()?.into())
     }
 
     fn part2(&self, input: &str) -> RResult {
-        let mut brain = ComputerFactory::init(input)?.build_blocking();
+        let mut brain = ComputerFactory::init(input)?.build();
         let maze = maze::Maze::new(&mut brain)?;
 
         Ok(maze.oxygenize()?.into())
@@ -43,7 +43,7 @@ mod maze {
     use super::DayError;
     use crate::{
         common::{area::Area, direction::Direction, pos2::Pos2},
-        int_code::BlockingIntCodeRunner,
+        int_code::IntCodeComputer,
     };
     use std::collections::{hash_map::Entry, HashMap};
 
@@ -83,7 +83,7 @@ mod maze {
     }
 
     impl Maze {
-        pub fn new(brain: &mut BlockingIntCodeRunner) -> Result<Self, DayError> {
+        pub fn new(brain: &mut IntCodeComputer) -> Result<Self, DayError> {
             let mut maze = Self {
                 tiles: HashMap::new(),
                 oxygen: None,
@@ -125,7 +125,7 @@ mod maze {
             }
         }
 
-        fn explore(&mut self, brain: &mut BlockingIntCodeRunner) -> Result<(), DayError> {
+        fn explore(&mut self, brain: &mut IntCodeComputer) -> Result<(), DayError> {
             let mut path = vec![Direction::East];
             let mut pos = Pos2::default();
             self.tiles.insert(pos, Tile::Empty);
@@ -234,22 +234,5 @@ mod maze {
             }
             Ok(times)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::days::{read_string, ResultType, UnitResult};
-
-    #[test]
-    pub fn test_part1() -> UnitResult {
-        let day = Day {};
-        let input = read_string(day.get_day_number(), "input.txt")?;
-        let expected = ResultType::Nothing;
-        let result = day.part1(&input)?;
-        assert_eq!(result, expected);
-
-        Ok(())
     }
 }

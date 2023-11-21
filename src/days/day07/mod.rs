@@ -1,4 +1,4 @@
-use crate::int_code::{ComputerError, ComputerFactory};
+use crate::int_code::{ComputerError, ComputerFactory, IntCodeComputer};
 
 use super::{DayTrait, DayType, RResult};
 use itertools::Itertools;
@@ -63,28 +63,30 @@ impl Amplifier {
             .fold_ok(i64::MIN, |v, x| v.max(x))
     }
 
-    pub fn run(&self, phase_value: &[i64]) -> Result<i64, DayError> {
-        let mut value = 0;
-        for &phase in phase_value {
-            let mut computer = self.factory.build_blocking();
-            computer.send_i64(phase);
-            computer.send_i64(value);
-            if let Some(next_value) = computer.maybe_i64()? {
-                value = next_value;
-            };
-        }
-        Ok(value)
-    }
-
-    pub fn run_recursive(&self, phase_value: &[i64]) -> Result<i64, DayError> {
-        let mut computers = phase_value
+    fn initialize_computers<'a>(
+        &'a self,
+        phase_values: &'a [i64],
+    ) -> impl Iterator<Item = IntCodeComputer> + 'a {
+        phase_values
             .iter()
-            .zip(self.factory.iter_blocking())
+            .zip(std::iter::repeat_with(|| self.factory.build()))
             .map(|(phase, mut computer)| {
                 computer.send_i64(*phase);
                 computer
             })
-            .collect_vec();
+    }
+
+    pub fn run(&self, phase_values: &[i64]) -> Result<i64, DayError> {
+        Ok(self
+            .initialize_computers(phase_values)
+            .try_fold(0, |value, mut computer| {
+                computer.send_i64(value);
+                computer.expect_i64()
+            })?)
+    }
+
+    pub fn run_recursive(&self, phase_values: &[i64]) -> Result<i64, DayError> {
+        let mut computers = self.initialize_computers(phase_values).collect_vec();
 
         let mut value = 0;
         loop {
