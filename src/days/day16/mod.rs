@@ -8,7 +8,7 @@ pub struct Day;
 
 type Number = i32;
 
-const BASE: [Number; 4] = [1, 0, -1, 0];
+const BASE: [Number; 4] = [0, 1, 0, -1];
 const PHASES: usize = 100;
 
 impl DayTrait for Day {
@@ -55,30 +55,6 @@ impl FromStr for Fft {
 }
 
 impl Fft {
-    #[inline]
-    fn calc_pattern(phase: usize, pos: usize) -> Number {
-        BASE[((pos + 1) / phase + (BASE.len() - 1)) % BASE.len()]
-    }
-
-    #[inline]
-    fn phase_start(phase: usize, skip: usize) -> (usize, usize) {
-        assert!(phase > 0);
-        let start_index = phase - 1;
-        if skip < start_index {
-            (start_index, start_index)
-        } else {
-            let block_length = BASE.len() * phase;
-            let adjusted_start = skip - start_index;
-            let adjusted_multiple = adjusted_start.next_multiple_of(block_length);
-            let real_start = adjusted_multiple + start_index;
-            if adjusted_start == adjusted_multiple || real_start < block_length {
-                (real_start, real_start)
-            } else {
-                (real_start - block_length, real_start)
-            }
-        }
-    }
-
     pub fn rounds(self, times: usize) -> Self {
         self.complex_rounds(times, 1, 0)
     }
@@ -94,39 +70,38 @@ impl Fft {
             .skip(skip)
             .collect_vec();
 
+        let real_quick_start = len.div_ceil(2);
+        let quick_start_index = if real_quick_start > skip {
+            real_quick_start - skip
+        } else {
+            0
+        };
+        let end_index = data.len();
+
         for _ in 0..times {
-            data = ((skip + 1)..=len)
-                .map(|phase| {
-                    let (first_block, run_start) = Self::phase_start(phase, skip);
-                    let start_sum: Number = if first_block != run_start && skip + phase > run_start
-                    {
-                        data[(first_block - skip)..(run_start - skip - phase)]
-                            .iter()
-                            .enumerate()
-                            .map(|(pos, value)| *value * Self::calc_pattern(phase, pos + skip))
-                            .sum()
-                    } else {
-                        0
-                    };
+            for index in 0..quick_start_index {
+                let phase = index + skip + 1;
 
-                    let mut rest_sum = 0;
-                    let mut offset = run_start - skip;
-                    let mut idx = 0;
-                    while offset < len - skip {
-                        if BASE[idx] != 0 {
-                            rest_sum +=
-                                BASE[idx] * data[offset..].iter().take(phase).sum::<Number>();
-                        }
-                        offset += phase;
-                        idx += 1;
-                        if idx >= BASE.len() {
-                            idx = 0;
-                        }
+                let first_start = phase - 1;
+                let mut start = index;
+                let mut end =
+                    (start + skip - first_start + 1).next_multiple_of(phase) - skip + first_start;
+
+                let mut digit_sum = 0;
+                while start < end_index {
+                    let idx = ((start + skip + 1) / phase) % BASE.len();
+                    if BASE[idx] != 0 {
+                        digit_sum += BASE[idx] * data[start..end].iter().sum::<Number>();
                     }
+                    start = end;
+                    end = (end + phase).min(end_index);
+                }
 
-                    (start_sum + rest_sum).abs() % 10
-                })
-                .collect_vec();
+                data[index] = digit_sum.abs() % 10;
+            }
+            for index in (quick_start_index..end_index - 1).rev() {
+                data[index] = (data[index] + data[index + 1]) % 10;
+            }
         }
         Self(data)
     }
@@ -158,7 +133,7 @@ mod test {
     #[test]
     fn test_part2() -> UnitResult {
         let day = Day {};
-        let input = read_string(day.get_day_number(), "input.txt")?;
+        let input = read_string(day.get_day_number(), "example03.txt")?;
         let expected = ResultType::Integer(84462026);
         let result = day.part2(&input)?;
         assert_eq!(result, expected);
@@ -167,53 +142,15 @@ mod test {
     }
 
     #[test]
-    fn pattern_for_phase() {
-        assert_eq!(
-            (0..)
-                .map(|pos| Fft::calc_pattern(1, pos))
-                .take(10)
-                .collect_vec(),
-            vec![1, 0, -1, 0, 1, 0, -1, 0, 1, 0]
-        );
-        assert_eq!(
-            (0..)
-                .map(|pos| Fft::calc_pattern(2, pos))
-                .take(10)
-                .collect_vec(),
-            vec![0, 1, 1, 0, 0, -1, -1, 0, 0, 1]
-        );
-        assert_eq!(
-            (0..)
-                .map(|pos| Fft::calc_pattern(3, pos))
-                .take(10)
-                .collect_vec(),
-            vec![0, 0, 1, 1, 1, 0, 0, 0, -1, -1]
-        );
-    }
-    #[test]
-    fn start_pattern() {
-        assert_eq!(Fft::phase_start(1, 0), (0, 0));
-        assert_eq!(Fft::phase_start(1, 1), (0, 4));
-        assert_eq!(Fft::phase_start(1, 7), (4, 8));
-        assert_eq!(Fft::phase_start(1, 8), (8, 8));
-        assert_eq!(Fft::phase_start(1, 9), (8, 12));
-
-        assert_eq!(Fft::phase_start(2, 0), (1, 1));
-        assert_eq!(Fft::phase_start(2, 1), (1, 1));
-        assert_eq!(Fft::phase_start(2, 8), (1, 9));
-        assert_eq!(Fft::phase_start(2, 9), (9, 9));
-        assert_eq!(Fft::phase_start(2, 10), (9, 17));
-    }
-
-    #[test]
     fn example1() -> UnitResult {
         let input = "12345678";
-        let fft: Fft = input.parse()?;
 
+        let fft: Fft = input.parse()?;
         let fft = fft.rounds(1);
         assert_eq!(fft.as_usize(8), 48226158);
 
-        let fft = fft.rounds(1);
+        let fft: Fft = input.parse()?;
+        let fft = fft.rounds(2);
         assert_eq!(fft.as_usize(8), 34040438);
 
         Ok(())
@@ -230,6 +167,18 @@ mod test {
         let fft: Fft = input.parse()?;
         let fft_2 = fft.complex_rounds(2, 1, 1);
         assert_eq!(fft_2.as_usize(8), 4040438);
+
+        Ok(())
+    }
+
+    #[test]
+    fn example2() -> UnitResult {
+        let day = Day {};
+        let input = read_string(day.get_day_number(), "example02.txt")?;
+
+        let fft: Fft = input.parse()?;
+        let fft = fft.rounds(1);
+        assert_eq!(fft.as_usize(8), 24706861);
 
         Ok(())
     }
