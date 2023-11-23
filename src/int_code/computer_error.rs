@@ -16,4 +16,6 @@ pub enum ComputerError {
     PrematureEndOfOutput,
     #[error("Waiting for Input")]
     WaitingForInput,
+    #[error("not a valid char: {0}")]
+    NotAValidChar(i64),
 }

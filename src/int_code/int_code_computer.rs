@@ -68,6 +68,17 @@ impl IntCodeComputer {
     }
 
     #[inline]
+    pub fn send_char(&mut self, input: char) {
+        self.send_i64(input as i64);
+    }
+
+    #[inline]
+    pub fn send_string(&mut self, input: String) {
+        input.chars().for_each(|c| self.send_char(c));
+        self.send_i64(10);
+    }
+
+    #[inline]
     pub fn expect_i64(&mut self) -> Result<i64, ComputerError> {
         if let Some(value) = self.run()? {
             Ok(value)
@@ -103,6 +114,13 @@ impl IntCodeComputer {
         } else {
             Ok(Some(result))
         }
+    }
+
+    pub fn expect_string(&mut self) -> Result<String, ComputerError> {
+        self.as_iter()
+            .map_ok(|c| char::from_u32(c as u32).ok_or(ComputerError::NotAValidChar(c)))
+            .flatten()
+            .try_collect()
     }
 }
 

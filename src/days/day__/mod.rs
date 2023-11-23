@@ -1,4 +1,5 @@
 use super::{DayTrait, DayType, RResult};
+use crate::int_code::ComputerError;
 use itertools::Itertools;
 use std::num;
 
@@ -22,6 +23,8 @@ impl DayTrait for Day {
 
 #[derive(Debug, thiserror::Error)]
 enum DayError {
+    #[error("Computer error: {0}")]
+    ComputerError(#[from] ComputerError),
     #[error("Not a valid description: {0}")]
     ParseError(String),
     #[error("Not an Int")]
