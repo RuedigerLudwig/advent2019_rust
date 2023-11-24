@@ -1,12 +1,21 @@
 use super::{DayTrait, DayType, RResult};
 use crate::{
     common::{direction::Direction, pos2::Pos2, turn::Turn},
-    int_code::{ComputerError, ComputerFactory, IntCodeComputer},
+    int_code::{ComputerError, ComputerFactory, IntCodeComputer, Pointer},
 };
 use itertools::Itertools;
 use std::{fmt::Display, num, ops::Add, str::FromStr};
 
 const DAY_NUMBER: DayType = 17;
+const MAX_LEN: usize = 20;
+const MAX_DEPTH: usize = 3;
+const SHOW_OUTPUT: bool = false;
+
+fn maybe_print(output: &str) {
+    if SHOW_OUTPUT {
+        println!("{}", output);
+    }
+}
 
 pub struct Day;
 
@@ -16,18 +25,18 @@ impl DayTrait for Day {
     }
 
     fn part1(&self, input: &str) -> RResult {
-        let mut reader = AsciiReader::new(input)?;
+        let mut reader = AsciiBrain::new(input)?;
         let picture: RobotPicture = reader.get_image()?.parse()?;
         Ok(picture.crossing_sum().into())
     }
 
     fn part2(&self, input: &str) -> RResult {
-        let mut reader = AsciiReader::new(input)?;
-        let picture: RobotPicture = reader.get_image()?.parse()?;
-        let path = picture.gather()?;
-        println!("{}", path);
-        path.break_path(19)?;
-        Ok(().into())
+        let mut ascii_brain = AsciiBrain::new(input)?;
+        let picture: RobotPicture = ascii_brain.get_image()?.parse()?;
+        let path = picture.determine_path()?;
+        let parts = path.break_up_path()?;
+        let result = ascii_brain.feed_input(parts)?;
+        Ok(result.into())
     }
 }
 
@@ -51,8 +60,8 @@ enum DayError {
     NotAllowedTurn(Turn),
     #[error("Empty path is not allowed")]
     EmptyPathNotAllowed,
-    #[error("Could not split path")]
-    CouldNotSplitPath,
+    #[error("No Path Found")]
+    NoPathFound,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -223,7 +232,7 @@ impl RobotPicture {
         None
     }
 
-    pub fn gather(&self) -> Result<Path, DayError> {
+    pub fn determine_path(&self) -> Result<Path, DayError> {
         let mut facing = self.direction;
         let mut pos = self.robot;
         let mut path = Path::new();
@@ -274,18 +283,137 @@ impl Display for Element {
     }
 }
 
+#[derive(Debug)]
 struct PathFinder<'a> {
     orig: &'a Path,
-    sub: Vec<(Path>,
+    sub: Vec<(Path, Vec<usize>)>,
+    free_positions: Vec<bool>,
+}
+
+impl Display for PathFinder<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (sub, pos) in self.sub.iter() {
+            writeln!(f, "{}: {:?}", sub, pos)?;
+        }
+        writeln!(f, "{:?}", self.free_positions)
+    }
 }
 
 impl<'a> PathFinder<'a> {
-    pub fn new(orig: &'a Path) -> Self {
-        PathFinder { orig, sub: vec![] }
+    pub fn min_output_len(&self) -> usize {
+        let items: usize = self.sub.iter().map(|(_, pos)| pos.len()).sum();
+        if items == 0 {
+            0
+        } else {
+            items * 2 - 1
+        }
     }
 
-    pub fn new_start(&self) -> Self {
+    pub fn new(orig: &'a Path) -> Self {
+        PathFinder {
+            orig,
+            sub: vec![],
+            free_positions: vec![true; orig.len()],
+        }
+    }
 
+    fn first_free_position(&self) -> Option<usize> {
+        self.free_positions.iter().position(|free| *free)
+    }
+
+    fn add_sub(&self, new_sub: Path, positions: Vec<usize>) -> Option<Self> {
+        if self.sub.len() >= MAX_DEPTH {
+            return None;
+        }
+        let mut free_positions = self.free_positions.clone();
+        for start in positions.iter() {
+            let end = start + new_sub.len();
+            if !free_positions[*start..end].iter().all(|item| *item) {
+                return None;
+            }
+            free_positions[*start..end]
+                .iter_mut()
+                .for_each(|item| *item = false);
+        }
+        let mut sub = self.sub.clone();
+        sub.push((new_sub, positions));
+        let candidate = Self {
+            orig: self.orig,
+            sub,
+            free_positions,
+        };
+        if candidate.min_output_len() < MAX_LEN {
+            Some(candidate)
+        } else {
+            None
+        }
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.free_positions.iter().all(|free| !free)
+    }
+
+    fn add_repeats(&self, sub: Path) -> Vec<Self> {
+        let repeats = self.orig.find_repeats(&sub);
+
+        repeats
+            .into_iter()
+            .powerset()
+            .filter_map(|positions| self.add_sub(sub.clone(), positions))
+            .collect_vec()
+    }
+
+    fn check_reduce(mut self) -> Vec<Self> {
+        let (curr, _) = self.sub.pop().unwrap();
+        let Some(next_sub) = curr.reduce_by_one() else {
+            return vec![];
+        };
+        self.add_repeats(next_sub)
+    }
+
+    pub fn next_sub(self) -> Vec<Self> {
+        if let Some((_, pos)) = self.sub.last() {
+            if pos.is_empty() {
+                return self.check_reduce();
+            }
+        }
+
+        let Some(first_free) = self.first_free_position() else {
+            return vec![];
+        };
+        let Some(sub) = self.orig.find_max_subpath(first_free) else {
+            return vec![];
+        };
+        self.add_repeats(sub)
+    }
+
+    fn get_order(&self) -> String {
+        self.sub
+            .iter()
+            .enumerate()
+            .fold(
+                vec![None; self.orig.len()],
+                |mut lst, (idx, (_, positions))| {
+                    positions.iter().for_each(|start| {
+                        lst[*start] = Some(idx);
+                    });
+                    lst
+                },
+            )
+            .into_iter()
+            .flatten()
+            .map(|c| (c as u8 + b'A') as char)
+            .join(",")
+    }
+
+    fn get_strings(&self) -> Vec<String> {
+        if !self.is_finished() {
+            vec![]
+        } else {
+            std::iter::once(self.get_order())
+                .chain(self.sub.iter().map(|(sub, _)| format!("{}", sub)))
+                .collect_vec()
+        }
     }
 }
 
@@ -326,18 +454,23 @@ impl Path {
             .fold(self.path.len() - 1, Add::add)
     }
 
-    pub fn pop_one(&mut self) {
-        self.path.pop();
+    pub fn reduce_by_one(&self) -> Option<Self> {
+        if self.len() > 1 {
+            let mut path = self.path.clone();
+            path.pop();
+            Some(Self { path })
+        } else {
+            None
+        }
     }
 
-    pub fn find_max_subpath(&self, start_at: usize, max_len: usize) -> Option<Path> {
+    pub fn find_max_subpath(&self, start_at: usize) -> Option<Path> {
         let mut sub = Path::new();
         let mut current = start_at;
         while let Some(element) = self.path.get(current) {
-            sub.path.push(element.clone());
-            if sub.string_len() > max_len {
-                sub.pop_one();
-                break;
+            sub.path.push(*element);
+            if sub.string_len() > MAX_LEN {
+                return sub.reduce_by_one();
             }
             current += 1;
         }
@@ -359,39 +492,24 @@ impl Path {
         }
         (0..(self.len() - sub.len() + 1))
             .filter(|start| {
-                let equal = sub
-                    .path
+                sub.path
                     .iter()
                     .zip(self.path[*start..].iter())
-                    .all(|(a, b)| a == b);
-                if equal {
-                    println!("{}", start)
-                }
-                equal
+                    .all(|(a, b)| a == b)
             })
             .collect_vec()
     }
 
-    pub fn break_path(&self, max_len: usize) -> Result<Vec<Path>, DayError> {
-        let path_finder = PathFinder::new(self);
-        let mut used_up = vec![false; self.path.len()];
-        let Some(mut sub) = self.find_max_subpath(String::from("A"), 12, max_len) else {
-            return Err(DayError::CouldNotSplitPath);
-        };
-        loop {
-            let findings = self.find_repeats(&sub);
-            if findings.len() > 1 {
-                println!("{}", sub);
-                println!("{:?}", findings);
-                break;
+    pub fn break_up_path(&self) -> Result<Vec<String>, DayError> {
+        let pf = PathFinder::new(self);
+        let mut queue = vec![pf];
+        while let Some(current) = queue.pop() {
+            if current.is_finished() {
+                return Ok(current.get_strings());
             }
-            sub.pop_one();
-            if sub.is_empty() {
-                return Err(DayError::CouldNotSplitPath);
-            }
+            queue.append(&mut current.next_sub())
         }
-
-        todo!()
+        Err(DayError::NoPathFound)
     }
 }
 
@@ -406,47 +524,53 @@ impl Display for Path {
     }
 }
 
-struct AsciiReader {
+struct AsciiBrain {
     brain: IntCodeComputer,
 }
 
-impl AsciiReader {
+impl AsciiBrain {
     pub fn new(code: &str) -> Result<Self, DayError> {
         let brain = ComputerFactory::init(code)?.build();
         Ok(Self { brain })
     }
 
     pub fn get_image(&mut self) -> Result<String, DayError> {
-        Ok(self.brain.expect_string()?)
+        Ok(std::iter::from_fn(|| self.brain.maybe_string().transpose())
+            .collect::<Result<Vec<_>, _>>()?
+            .iter()
+            .join("\n"))
+    }
+
+    fn receive_and_send(&mut self, to_send: &str) -> Result<(), DayError> {
+        maybe_print(&self.brain.expect_string_()?);
+        maybe_print(to_send);
+        self.brain.send_string(to_send);
+        Ok(())
+    }
+
+    fn animate(&mut self) -> Result<(), DayError> {
+        self.receive_and_send("n")?;
+        maybe_print(&self.get_image()?);
+
+        Ok(())
+    }
+
+    pub fn feed_input(&mut self, input: Vec<String>) -> Result<i64, DayError> {
+        self.brain.manipulate_memory(Pointer::new(0), 2);
+
+        for line in input {
+            self.receive_and_send(&line)?;
+        }
+        self.animate()?;
+
+        Ok(self.brain.expect_i64()?)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::days::{read_string, ResultType, UnitResult};
-
-    #[test]
-    fn test_part1() -> UnitResult {
-        let day = Day {};
-        let input = read_string(day.get_day_number(), "example01.txt")?;
-        let expected = ResultType::Integer(76);
-        let result = day.part1(&input)?;
-        assert_eq!(result, expected);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_part2() -> UnitResult {
-        let day = Day {};
-        let input = read_string(day.get_day_number(), "input.txt")?;
-        let expected = ResultType::Nothing;
-        let result = day.part2(&input)?;
-        assert_eq!(result, expected);
-
-        Ok(())
-    }
+    use crate::days::{read_string, UnitResult};
 
     #[test]
     fn analyze() -> UnitResult {

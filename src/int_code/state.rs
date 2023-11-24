@@ -14,7 +14,7 @@ pub enum StepResult {
 pub enum RunningState {
     Running,
     Waiting,
-    Halted,
+    Error,
 }
 
 pub struct State {
@@ -52,7 +52,7 @@ impl State {
                 }
                 self.running = RunningState::Running;
             }
-            RunningState::Halted => return Err(ComputerError::NotRunning),
+            RunningState::Error => return Err(ComputerError::StoppedAfterError),
         }
 
         match instructions::run_instruction(self) {
@@ -62,12 +62,9 @@ impl State {
                 Ok(StepResult::Waiting)
             }
             Ok(StepResult::Output(value)) => Ok(StepResult::Output(value)),
-            Ok(StepResult::Halted) => {
-                self.running = RunningState::Halted;
-                Ok(StepResult::Halted)
-            }
+            Ok(StepResult::Halted) => Ok(StepResult::Halted),
             Err(err) => {
-                self.running = RunningState::Halted;
+                self.running = RunningState::Error;
                 Err(err)
             }
         }

@@ -1,14 +1,18 @@
+use std::collections::VecDeque;
+
 use super::{computer_error::ComputerError, state::State, Pointer, StepResult};
 use itertools::Itertools;
 
 pub struct IntCodeComputer {
     state: State,
+    peeked: VecDeque<i64>,
 }
 
 impl IntCodeComputer {
     fn new(memory: &[i64]) -> Self {
         Self {
             state: State::new(memory),
+            peeked: VecDeque::new(),
         }
     }
 
@@ -45,7 +49,7 @@ impl IntCodeComputer {
             type Item = Result<i64, ComputerError>;
 
             fn next(&mut self) -> Option<Self::Item> {
-                self.0.run().transpose()
+                self.0.receive_next().transpose()
             }
         }
         BlockingRunner::new(self)
@@ -73,14 +77,23 @@ impl IntCodeComputer {
     }
 
     #[inline]
-    pub fn send_string(&mut self, input: String) {
+    pub fn send_string(&mut self, input: &str) {
         input.chars().for_each(|c| self.send_char(c));
         self.send_i64(10);
     }
 
     #[inline]
+    fn receive_next(&mut self) -> Result<Option<i64>, ComputerError> {
+        if let Some(peeked) = self.peeked.pop_front() {
+            Ok(Some(peeked))
+        } else {
+            self.run()
+        }
+    }
+
+    #[inline]
     pub fn expect_i64(&mut self) -> Result<i64, ComputerError> {
-        if let Some(value) = self.run()? {
+        if let Some(value) = self.receive_next()? {
             Ok(value)
         } else {
             Err(ComputerError::PrematureEndOfOutput)
@@ -89,12 +102,12 @@ impl IntCodeComputer {
 
     #[inline]
     pub fn maybe_i64(&mut self) -> Result<Option<i64>, ComputerError> {
-        self.run()
+        self.receive_next()
     }
 
     #[inline]
     pub fn expect_bool(&mut self) -> Result<bool, ComputerError> {
-        if let Some(value) = self.run()? {
+        if let Some(value) = self.receive_next()? {
             Ok(value != 0)
         } else {
             Err(ComputerError::PrematureEndOfOutput)
@@ -103,7 +116,7 @@ impl IntCodeComputer {
 
     #[inline]
     pub fn maybe_bool(&mut self) -> Result<Option<bool>, ComputerError> {
-        Ok(self.run()?.map(|value| value != 0))
+        Ok(self.receive_next()?.map(|value| value != 0))
     }
 
     #[inline]
@@ -116,11 +129,58 @@ impl IntCodeComputer {
         }
     }
 
-    pub fn expect_string(&mut self) -> Result<String, ComputerError> {
-        self.as_iter()
-            .map_ok(|c| char::from_u32(c as u32).ok_or(ComputerError::NotAValidChar(c)))
-            .flatten()
-            .try_collect()
+    fn push_peeked(&mut self, value: i64) {
+        self.peeked.push_back(value);
+    }
+
+    pub fn maybe_string(&mut self) -> Result<Option<String>, ComputerError> {
+        let mut string = String::new();
+        let mut got_string_data = false;
+        let mut peeked = None;
+
+        for could_be_char in self.as_iter() {
+            let c = could_be_char?;
+
+            if c == 10 {
+                got_string_data = true;
+                break;
+            }
+
+            let mut got_correct_char = false;
+            if let Some(ch) = char::from_u32(c as u32) {
+                if ch.is_ascii() {
+                    got_string_data = true;
+                    got_correct_char = true;
+                    string.push(ch);
+                }
+            }
+
+            if !got_correct_char {
+                if got_string_data {
+                    return Err(ComputerError::NotAValidChar(c));
+                } else {
+                    peeked = Some(c);
+                    break;
+                }
+            }
+        }
+
+        if let Some(peeked) = peeked {
+            self.push_peeked(peeked);
+            Ok(None)
+        } else if !got_string_data {
+            Ok(None)
+        } else {
+            Ok(Some(string))
+        }
+    }
+
+    pub fn expect_string_(&mut self) -> Result<String, ComputerError> {
+        if let Some(string) = self.maybe_string()? {
+            Ok(string)
+        } else {
+            Err(ComputerError::PrematureEndOfOutput)
+        }
     }
 }
 

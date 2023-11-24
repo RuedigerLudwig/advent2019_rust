@@ -4,8 +4,8 @@ pub enum ComputerError {
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("IllegalOperation: {0}")]
     IllegalOperation(usize),
-    #[error("Machine is not running")]
-    NotRunning,
+    #[error("Machine was stopped after an error")]
+    StoppedAfterError,
     #[error("Not an instruction {0}")]
     NotAnInstruction(i64),
     #[error("Illegale ParamMode")]
