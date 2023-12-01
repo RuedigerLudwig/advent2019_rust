@@ -4,6 +4,7 @@ use super::{computer_error::ComputerError, state::State, Pointer, StepResult};
 use itertools::Itertools;
 
 pub struct IntCodeComputer {
+    init_memory: Vec<i64>,
     state: State,
     peeked: VecDeque<i64>,
 }
@@ -11,9 +12,15 @@ pub struct IntCodeComputer {
 impl IntCodeComputer {
     fn new(memory: &[i64]) -> Self {
         Self {
+            init_memory: Vec::from(memory),
             state: State::new(memory),
             peeked: VecDeque::new(),
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.state = State::new(&self.init_memory);
+        self.peeked.clear();
     }
 
     fn run(&mut self) -> Result<Option<i64>, ComputerError> {
@@ -36,7 +43,7 @@ impl IntCodeComputer {
     }
 
     pub fn as_iter(&mut self) -> impl Iterator<Item = Result<i64, ComputerError>> + '_ {
-        struct BlockingRunner<'a>(&'a mut IntCodeComputer);
+        struct BlockingRunner<'b>(&'b mut IntCodeComputer);
 
         impl<'a> BlockingRunner<'a> {
             #[inline]
