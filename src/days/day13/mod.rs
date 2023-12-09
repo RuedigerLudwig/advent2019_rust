@@ -77,7 +77,7 @@ impl Game {
         let mut blocks = 0;
         let mut score = 0;
         let mut paddle_pos = None;
-        while let Some(v) = brain.maybe_take_exacltly(3)? {
+        while let Some(v) = brain.maybe_take_exactly(3)? {
             let [x, y, payload] = v[..] else {
                 unreachable!();
             };

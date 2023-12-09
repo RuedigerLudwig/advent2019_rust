@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use super::{computer_error::ComputerError, state::State, Pointer, StepResult};
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 
 pub struct IntCodeComputer {
     init_memory: Vec<i64>,
@@ -127,7 +127,7 @@ impl IntCodeComputer {
     }
 
     #[inline]
-    pub fn maybe_take_exacltly(&mut self, n: usize) -> Result<Option<Vec<i64>>, ComputerError> {
+    pub fn maybe_take_exactly(&mut self, n: usize) -> Result<Option<Vec<i64>>, ComputerError> {
         let result: Vec<i64> = self.as_iter().take(n).try_collect()?;
         if result.len() != n {
             Ok(None)
@@ -138,6 +138,16 @@ impl IntCodeComputer {
 
     fn push_peeked(&mut self, value: i64) {
         self.peeked.push_back(value);
+    }
+
+    pub fn maybe_string_or_i64(&mut self) -> Result<Option<Either<i64, String>>, ComputerError> {
+        if let Some(string) = self.maybe_string()? {
+            Ok(Some(Either::Right(string)))
+        } else if !self.peeked.is_empty() {
+            Ok(Some(Either::Left(self.expect_i64()?)))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn maybe_string(&mut self) -> Result<Option<String>, ComputerError> {
