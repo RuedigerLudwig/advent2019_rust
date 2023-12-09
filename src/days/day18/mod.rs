@@ -1,9 +1,14 @@
-use crate::common::{direction::Direction, pos2::Pos2};
+use crate::common::{
+    direction::Direction,
+    path_finder::{find_best_path, FingerprintItem, FingerprintSkipper, PathFinder},
+    pos2::Pos2,
+};
 
 use super::{DayTrait, DayType, RResult};
 use itertools::Itertools;
 use std::{
-    collections::{BinaryHeap, HashSet, VecDeque},
+    cell::Cell,
+    collections::{BinaryHeap, VecDeque},
     str::FromStr,
 };
 
@@ -298,7 +303,7 @@ impl Player {
 }
 
 #[derive(Debug, Clone)]
-struct State<'a> {
+struct MapState<'a> {
     distances: &'a Distances,
     player: Vec<Player>,
     keyring: String,
@@ -306,21 +311,31 @@ struct State<'a> {
     steps: usize,
 }
 
-impl Eq for State<'_> {}
+impl FingerprintItem for MapState<'_> {
+    type Fingerprint = (Vec<Tile>, String);
+    fn get_fingerprint(&self) -> Self::Fingerprint {
+        (
+            self.player.iter().map(|p| p.position).collect(),
+            self.keyring.clone(),
+        )
+    }
+}
 
-impl PartialEq for State<'_> {
+impl Eq for MapState<'_> {}
+
+impl PartialEq for MapState<'_> {
     fn eq(&self, other: &Self) -> bool {
         matches!(self.cmp(other), std::cmp::Ordering::Equal)
     }
 }
 
-impl PartialOrd for State<'_> {
+impl PartialOrd for MapState<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for State<'_> {
+impl Ord for MapState<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self.steps.cmp(&other.steps).reverse() {
             std::cmp::Ordering::Equal => {}
@@ -334,7 +349,7 @@ impl Ord for State<'_> {
     }
 }
 
-impl<'a> State<'a> {
+impl<'a> MapState<'a> {
     pub fn new_single(distances: &'a Distances) -> Result<Self, DayError> {
         let keyring = String::new();
         let missing_keys = distances.count_keys();
@@ -426,20 +441,13 @@ impl<'a> State<'a> {
             })
             .collect();
 
-        Some(State {
+        Some(MapState {
             distances: self.distances,
             player,
             keyring,
             missing_keys: self.missing_keys - 1,
             steps,
         })
-    }
-
-    pub fn fingerprint(&self) -> (Vec<Tile>, String) {
-        (
-            self.player.iter().map(|p| p.position).collect(),
-            self.keyring.clone(),
-        )
     }
 
     fn reachable(&self) -> impl Iterator<Item = &Tile> + '_ {
@@ -585,30 +593,50 @@ impl Map {
     pub fn find_shortest_path(&self) -> Result<usize, DayError> {
         let distances = Distances::new(self);
         let state = if self.is_expanded {
-            State::new_multi(&distances)?
+            MapState::new_multi(&distances)?
         } else {
-            State::new_single(&distances)?
+            MapState::new_single(&distances)?
         };
-        let mut seen = HashSet::new();
-        let mut queue = BinaryHeap::new();
-        queue.push(state);
-        while let Some(current) = queue.pop() {
-            if current.is_finished() {
-                return Ok(current.steps);
-            }
-            let fingerprint = current.fingerprint();
-            if seen.contains(&fingerprint) {
-                continue;
-            }
-            seen.insert(fingerprint);
-            for tile in current.reachable() {
-                if let Some(next) = current.move_to(*tile) {
-                    queue.push(next);
-                }
-            }
-        }
+        let solver = MapSolver::new(state);
+        find_best_path(solver)
+            .map(|result| result.steps)
+            .ok_or(DayError::NoPathFound)
+    }
+}
 
-        Err(DayError::NoPathFound)
+struct MapSolver<'a> {
+    start: Cell<Option<MapState<'a>>>,
+}
+
+impl<'a> MapSolver<'a> {
+    pub fn new(start: MapState<'a>) -> Self {
+        Self {
+            start: Cell::new(Some(start)),
+        }
+    }
+}
+
+impl<'a> PathFinder for MapSolver<'a> {
+    type Item = MapState<'a>;
+    type Queue = BinaryHeap<Self::Item>;
+    type Skipper = FingerprintSkipper<MapState<'a>>;
+
+    fn get_start_item(&self) -> Self::Item {
+        let Some(start) = self.start.take() else {
+            panic!("Can only start once");
+        };
+        start
+    }
+
+    fn is_finished(&self, item: &Self::Item) -> bool {
+        item.is_finished()
+    }
+
+    fn get_next_states<'b>(
+        &'b self,
+        item: &'b Self::Item,
+    ) -> impl Iterator<Item = Self::Item> + 'b {
+        item.reachable().filter_map(move |&tile| item.move_to(tile))
     }
 }
 
@@ -685,7 +713,7 @@ mod test {
             [Tile::Key('a')]
         );
 
-        let player = State::new_single(&distances)?;
+        let player = MapState::new_single(&distances)?;
 
         let player = player.move_to(Tile::Key('a')).unwrap();
         assert_eq!(player.steps, 2);
@@ -819,7 +847,7 @@ mod test {
             [Tile::Key('d')]
         );
 
-        let state = State::new_multi(&distances)?;
+        let state = MapState::new_multi(&distances)?;
 
         let state = state.move_to(Tile::Key('a')).unwrap();
         assert_eq!(state.steps, 2);
